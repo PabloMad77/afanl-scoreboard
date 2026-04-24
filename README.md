@@ -1,1 +1,1 @@
-# afanl-scorebaord
+# afanl-scoreboard
