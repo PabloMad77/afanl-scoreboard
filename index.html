@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>AFANL Scoreboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AFANL">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a1f3c">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- Logo lives here as an img tag — avoids huge JS string literals that crash iOS Safari -->
+<img id="hiddenLogo" src="https://pablomad77.github.io/afanl-scoreboard/logo.png" style="display:none;" alt="">
+
+<style>
+:root {
+  --navy:     #0a1f3c;
+  --navy-dk:  #060f1e;
+  --navy-md:  #122a52;
+  --gold:     #c9a84c;
+  --gold-lt:  #e8c96a;
+  --gold-dk:  #9a7a2e;
+  --white:    #ffffff;
+  --offwhite: #f5f0e8;
+  --red:      #dc3545;
+}
+* { box-sizing: border-box; }
+body {
+  font-family: 'Roboto', sans-serif;
+  text-align: center;
+  background: linear-gradient(160deg, #060f1e 0%, #0a1f3c 60%, #122a52 100%);
+  color: var(--white);
+  margin: 0;
+  padding: 20px;
+  padding-top: max(20px, env(safe-area-inset-top));
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  min-height: 100vh;
+}
+h1 {
+  font-family: 'Oswald', sans-serif;
+  font-size: 2.4rem; font-weight: 700;
+  letter-spacing: 3px; text-transform: uppercase;
+  margin: 0 0 6px 0;
+  color: var(--gold);
+  text-shadow: 0 2px 14px rgba(201,168,76,0.5);
+}
+h2 { font-family: 'Oswald', sans-serif; letter-spacing: 1px; }
+input, select {
+  padding: 10px 14px; font-size: 15px;
+  border-radius: 8px; border: 2px solid transparent;
+  text-align: center; margin: 5px;
+  background: rgba(255,255,255,0.1); color: white;
+  outline: none; transition: border 0.2s;
+}
+input::placeholder { color: rgba(255,255,255,0.45); }
+input:focus { border-color: var(--gold); }
+select { background: rgba(255,255,255,0.1); color: white; }
+select option { background: #0a1f3c; color: white; }
+.score-container { display:flex; justify-content:center; gap:20px; margin:24px 0; flex-wrap:wrap; }
+.team {
+  background: rgba(255,255,255,0.06); color: var(--white);
+  padding: 24px 20px; border-radius: 18px; width: 280px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  position: relative; overflow: hidden;
+  border: 1px solid rgba(201,168,76,0.15);
+}
+.team::before {
+  content: ''; position: absolute; top:0; left:0; right:0; height:5px;
+  background: linear-gradient(90deg, var(--gold-dk), var(--gold-lt), var(--gold-dk));
+}
+.team h2 { margin: 0 0 4px; font-size: 1.3rem; color: var(--gold); }
+.team input {
+  background: rgba(255,255,255,0.08); color: var(--white);
+  border: 2px solid rgba(201,168,76,0.2); width: 100%; margin: 0 0 8px;
+  font-family: 'Oswald', sans-serif; font-weight: 600; font-size: 1.1rem;
+}
+.team input::placeholder { color: rgba(255,255,255,0.35); }
+.team input:focus { border-color: var(--gold); }
+.score {
+  font-family: 'Oswald', sans-serif; font-size: 80px; font-weight: 700;
+  line-height: 1; margin: 12px 0; color: var(--white); transition: transform 0.15s;
+}
+.score.bump { transform: scale(1.18); }
+.score-buttons { display:flex; justify-content:center; gap:6px; flex-wrap:wrap; }
+button {
+  padding: 11px 16px; font-size: 16px;
+  font-family: 'Oswald', sans-serif; font-weight: 600;
+  letter-spacing: 0.5px; margin: 4px; border-radius: 10px;
+  border: none; cursor: pointer; transition: transform 0.1s, opacity 0.1s;
+}
+button:active { transform: scale(0.95); opacity: 0.85; }
+.add1 { background: #16a34a; color: white; }
+.add6 { background: var(--navy-dk); color: var(--gold); border: 1px solid rgba(201,168,76,0.3); }
+.sub  { background: var(--red); color: white; }
+.game-controls { margin: 10px 0; }
+.export-btn { background: linear-gradient(135deg, var(--gold-dk), var(--gold-lt)); color: #0a1f3c; font-weight: 700; margin: 6px; }
+.reset-btn  { background: rgba(0,0,0,0.4); color: white; margin: 6px; border: 1px solid rgba(255,255,255,0.15); }
+hr { border: none; border-top: 1px solid rgba(201,168,76,0.15); margin: 40px 0; }
+.stat-btn { background: linear-gradient(135deg, var(--gold-dk), var(--gold)); color: #0a1f3c; font-weight: 700; font-size: 18px; padding: 13px 18px; margin: 6px; border-radius: 10px; }
+table { width:100%; max-width:600px; margin:10px auto; border-collapse:collapse; background:rgba(255,255,255,0.05); color:white; border-radius:10px; overflow:hidden; box-shadow:0 4px 16px rgba(0,0,0,0.3); border:1px solid rgba(201,168,76,0.1); }
+th, td { padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+th { background: var(--navy-dk); color: var(--gold); font-family: 'Oswald', sans-serif; letter-spacing: 0.5px; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(201,168,76,0.06); }
+.modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); justify-content:center; align-items:center; z-index:9999; padding:16px; }
+.modal.open { display:flex; }
+.modal-box { background:#0d2244; color:white; padding:28px; border-radius:16px; width:100%; max-width:420px; max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.7); position:relative; border:1px solid rgba(201,168,76,0.15); }
+.modal-box h3 { font-family:'Oswald',sans-serif; margin-top:0; color:var(--gold); font-size:1.4rem; }
+.modal-close { position:absolute; top:14px; right:14px; background:rgba(255,255,255,0.1); border:none; border-radius:50%; width:30px; height:30px; font-size:16px; cursor:pointer; color:white; display:flex; align-items:center; justify-content:center; padding:0; }
+.modal-close:hover { background: rgba(201,168,76,0.2); }
+.player-btn-grid { display:flex; flex-direction:column; gap:4px; margin-top:8px; width:100%; }
+.player-list-item { display:flex; justify-content:space-between; align-items:center; padding:8px 4px; border-bottom:1px solid rgba(201,168,76,0.1); }
+.unit-badge { font-size:11px; background:rgba(201,168,76,0.15); color:var(--gold); padding:2px 8px; border-radius:20px; margin-left:8px; }
+.remove-btn { background:rgba(220,53,69,0.2); color:#f87171; font-size:13px; padding:4px 10px; border-radius:6px; border:1px solid rgba(220,53,69,0.3); }
+.modal-box input, .modal-box select { background:rgba(255,255,255,0.08); color:white; border:2px solid rgba(201,168,76,0.2); margin:4px; }
+.modal-box input:focus { border-color:var(--gold); }
+.add-player-row { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:12px; }
+.add-player-row input { flex:1; min-width:120px; }
+.subtitle { opacity:0.6; font-size:14px; margin:0 0 16px; }
+.save-indicator { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(60px); background:linear-gradient(135deg,var(--gold-dk),var(--gold-lt)); color:#0a1f3c; font-family:'Oswald',sans-serif; font-weight:700; padding:10px 24px; border-radius:30px; font-size:14px; pointer-events:none; transition:transform 0.3s ease; z-index:99999; letter-spacing:1px; }
+.save-indicator.show { transform:translateX(-50%) translateY(0); }
+.logo-header { display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:4px; }
+.logo-header img { width:60px; height:60px; object-fit:contain; border-radius:8px; }
+</style>
+</head>
+<body>
+
+<div id="scoreExportArea">
+  <div class="logo-header">
+    <!-- Visible logo in header — reuses the same hidden img element src -->
+    <img id="headerLogo" src="https://pablomad77.github.io/afanl-scoreboard/logo.png" alt="AFANL">
+    <h1>AFANL</h1>
+  </div>
+  <div>
+    <input id="categoryName" placeholder="Category / League" oninput="saveGameState()">
+  </div>
+  <div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:6px;">
+    <select id="jornadaSelect" onchange="handleJornadaChange()">
+      <option value="">Select Match</option>
+      <option>Jornada 1</option><option>Jornada 2</option><option>Jornada 3</option>
+      <option>Jornada 4</option><option>Jornada 5</option>
+      <option>Quarterfinal</option><option>Semifinal</option><option>Final</option>
+      <option value="custom">Custom...</option>
+    </select>
+    <input id="customJornada" placeholder="Custom match name" style="display:none;max-width:180px;" oninput="saveGameState()">
+  </div>
+  <div class="score-container">
+    <div class="team">
+      <input id="teamOneName" placeholder="Team 1 Name" oninput="saveGameState()" style="background:rgba(201,168,76,0.1);border-color:rgba(201,168,76,0.3);">
+      <div class="score" id="teamOneScore">0</div>
+      <div class="score-buttons">
+        <button class="add1" onclick="updateScore('one',1)">+1</button>
+        <button class="add6" onclick="updateScore('one',6)">+6</button>
+        <button class="sub"  onclick="updateScore('one',-1)">-1</button>
+      </div>
+    </div>
+    <div class="team">
+      <input id="teamTwoName" placeholder="Team 2 Name" oninput="saveGameState()">
+      <div class="score" id="teamTwoScore">0</div>
+      <div class="score-buttons">
+        <button class="add1" onclick="updateScore('two',1)">+1</button>
+        <button class="add6" onclick="updateScore('two',6)">+6</button>
+        <button class="sub"  onclick="updateScore('two',-1)">-1</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="game-controls">
+  <button class="export-btn" onclick="exportScore()">Export Score Image</button>
+  <button class="reset-btn"  onclick="resetGame()">Reset Game</button>
+</div>
+<hr>
+<div id="statsExportArea">
+  <h2>Player Stats</h2>
+  <button onclick="openPlayerManager()" style="background:rgba(201,168,76,0.12);color:var(--gold);font-weight:600;margin-bottom:16px;border:1px solid rgba(201,168,76,0.3);">Manage Players</button>
+  <h3 style="color:var(--gold);">Offense</h3>
+  <div>
+    <button class="stat-btn" onclick="openStat('td','offense')">TD</button>
+    <button class="stat-btn" onclick="openStat('catch','offense')">CATCH</button>
+    <button class="stat-btn" onclick="openStat('xp','offense')">XP</button>
+  </div>
+  <table id="offenseTable"><tr><th>Player</th><th>TD</th><th>CATCH</th><th>XP</th></tr></table>
+  <h3 style="color:var(--gold);margin-top:28px;">Defense</h3>
+  <div>
+    <button class="stat-btn" onclick="openStat('int','defense')">INT</button>
+    <button class="stat-btn" onclick="openStat('flag','defense')">FLAG</button>
+    <button class="stat-btn" onclick="openStat('sack','defense')">SACK</button>
+    <button class="stat-btn" onclick="openStat('defTd','defense')">TD</button>
+  </div>
+  <table id="defenseTable"><tr><th>Player</th><th>INT</th><th>FLAG</th><th>SACK</th><th>TD</th></tr></table>
+</div>
+<div style="margin-top:16px;">
+  <button class="export-btn" onclick="exportStats()">Export Stats Image</button>
+</div>
+
+<div class="save-indicator" id="saveIndicator">&#10003; SAVED</div>
+
+<!-- PREVIEW MODAL -->
+<div class="modal" id="previewModal">
+  <div class="modal-box" style="max-width:500px;text-align:center;">
+    <button class="modal-close" onclick="closeModal('previewModal')">&#x2715;</button>
+    <h3 style="margin-bottom:6px;">Preview</h3>
+    <p class="subtitle" style="margin-bottom:14px;">Long-press the image to save, or use the button below</p>
+    <img id="previewImg" style="width:100%;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.5);display:block;margin-bottom:16px;">
+    <button id="previewActionBtn" style="background:linear-gradient(135deg,#9a7a2e,#e8c96a);color:#0a1f3c;width:100%;padding:14px;font-size:17px;font-weight:700;border-radius:10px;">Save / Share</button>
+  </div>
+</div>
+
+<!-- STAT MODAL -->
+<div class="modal" id="statModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('statModal')">&#x2715;</button>
+    <h3 id="statModalTitle">Select Player</h3>
+    <p class="subtitle">Tap + to add or &#8722; to remove</p>
+    <div class="player-btn-grid" id="statPlayers"></div>
+  </div>
+</div>
+
+<!-- PLAYER MODAL -->
+<div class="modal" id="playerModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('playerModal')">&#x2715;</button>
+    <h3>Manage Players</h3>
+    <div id="playerList" style="margin-bottom:16px;text-align:left;"></div>
+    <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:16px;border:1px solid rgba(201,168,76,0.15);">
+      <strong style="display:block;margin-bottom:8px;color:rgba(255,255,255,0.8);">Add New Player</strong>
+      <div class="add-player-row">
+        <input id="newPlayerName" placeholder="Player name">
+        <select id="newPlayerUnit">
+          <option value="offense">Offense</option>
+          <option value="defense">Defense</option>
+        </select>
+      </div>
+      <button onclick="addPlayer()" style="background:linear-gradient(135deg,var(--gold-dk),var(--gold-lt));color:#0a1f3c;margin-top:10px;width:100%;padding:12px;font-weight:700;border-radius:8px;">Add Player</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+const GAME_KEY    = 'afanl_game';
+const PLAYERS_KEY = 'afanl_players';
+let scoreOne = 0, scoreTwo = 0, players = [];
+
+// ── Persistence ───────────────────────────────────────────────────────────────
+function saveGameState() {
+  localStorage.setItem(GAME_KEY, JSON.stringify({
+    scoreOne, scoreTwo,
+    categoryName:  document.getElementById('categoryName').value,
+    teamOneName:   document.getElementById('teamOneName').value,
+    teamTwoName:   document.getElementById('teamTwoName').value,
+    jornadaSelect: document.getElementById('jornadaSelect').value,
+    customJornada: document.getElementById('customJornada').value,
+  }));
+  flashSaved();
+}
+function savePlayers() { localStorage.setItem(PLAYERS_KEY, JSON.stringify(players)); flashSaved(); }
+
+let _t = null;
+function flashSaved() {
+  const el = document.getElementById('saveIndicator');
+  el.classList.add('show');
+  clearTimeout(_t);
+  _t = setTimeout(() => el.classList.remove('show'), 1400);
+}
+
+function loadState() {
+  players = JSON.parse(localStorage.getItem(PLAYERS_KEY) || '[]');
+  const raw = localStorage.getItem(GAME_KEY);
+  if (raw) {
+    try {
+      const s = JSON.parse(raw);
+      scoreOne = s.scoreOne || 0; scoreTwo = s.scoreTwo || 0;
+      document.getElementById('teamOneScore').innerText = scoreOne;
+      document.getElementById('teamTwoScore').innerText = scoreTwo;
+      document.getElementById('categoryName').value  = s.categoryName  || '';
+      document.getElementById('teamOneName').value   = s.teamOneName   || '';
+      document.getElementById('teamTwoName').value   = s.teamTwoName   || '';
+      const jSel = document.getElementById('jornadaSelect');
+      if (s.jornadaSelect) {
+        jSel.value = s.jornadaSelect;
+        if (s.jornadaSelect === 'custom') {
+          document.getElementById('customJornada').style.display = 'inline-block';
+          document.getElementById('customJornada').value = s.customJornada || '';
+        }
+      }
+    } catch(e) {}
+  }
+  renderAll();
+}
+
+// ── Score ─────────────────────────────────────────────────────────────────────
+function updateScore(t, val) {
+  const id = t === 'one' ? 'teamOneScore' : 'teamTwoScore';
+  if (t === 'one') { scoreOne = Math.max(0, scoreOne + val); document.getElementById('teamOneScore').innerText = scoreOne; }
+  else             { scoreTwo = Math.max(0, scoreTwo + val); document.getElementById('teamTwoScore').innerText = scoreTwo; }
+  const el = document.getElementById(id);
+  el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+  setTimeout(() => el.classList.remove('bump'), 200);
+  saveGameState();
+}
+
+function resetGame() {
+  if (!confirm('Reset game? Scores and match info will be cleared. Players and stats are kept.')) return;
+  scoreOne = 0; scoreTwo = 0;
+  document.getElementById('teamOneScore').innerText = 0;
+  document.getElementById('teamTwoScore').innerText = 0;
+  ['categoryName','teamOneName','teamTwoName','customJornada'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('jornadaSelect').value = '';
+  document.getElementById('customJornada').style.display = 'none';
+  saveGameState();
+}
+
+function handleJornadaChange() {
+  const s = document.getElementById('jornadaSelect');
+  document.getElementById('customJornada').style.display = s.value === 'custom' ? 'inline-block' : 'none';
+  saveGameState();
+}
+
+// ── Players ───────────────────────────────────────────────────────────────────
+function openPlayerManager() { renderPlayerList(); openModal('playerModal'); }
+function renderPlayerList() {
+  const c = document.getElementById('playerList');
+  if (!players.length) { c.innerHTML = '<p style="color:rgba(255,255,255,0.4);text-align:center;">No players yet.</p>'; return; }
+  c.innerHTML = players.map(p => `<div class="player-list-item"><span>${p.name}<span class="unit-badge">${p.unit}</span></span><button class="remove-btn" onclick="removePlayer(${p.id})">Remove</button></div>`).join('');
+}
+function addPlayer() {
+  const name = document.getElementById('newPlayerName').value.trim();
+  const unit = document.getElementById('newPlayerUnit').value;
+  if (!name) return;
+  players.push({ id: Date.now(), name, unit, td:0, catch:0, xp:0, int:0, flag:0, sack:0, defTd:0 });
+  document.getElementById('newPlayerName').value = '';
+  savePlayers(); renderPlayerList(); renderAll();
+}
+function removePlayer(id) {
+  if (!confirm('Remove this player?')) return;
+  players = players.filter(p => p.id !== id);
+  savePlayers(); renderPlayerList(); renderAll();
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+let currentStat = '', currentUnit = '';
+const statLabels = { td:'TD', catch:'CATCH', xp:'XP', int:'INT', flag:'FLAG', sack:'SACK', defTd:'TD (DEF)' };
+
+function openStat(stat, unit) {
+  currentStat = stat; currentUnit = unit;
+  document.getElementById('statModalTitle').textContent = statLabels[stat] + ' — ' + unit.charAt(0).toUpperCase() + unit.slice(1);
+  const pool = players.filter(p => p.unit === unit);
+  document.getElementById('statPlayers').innerHTML = !pool.length
+    ? '<p style="color:rgba(255,255,255,0.4);">No players in this unit.</p>'
+    : pool.map(p => `
+      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;background:rgba(201,168,76,0.07);border-radius:10px;padding:10px 14px;margin-bottom:8px;border:1px solid rgba(201,168,76,0.18);">
+        <span style="font-weight:600;font-size:16px;color:var(--gold);flex:1;text-align:left;">${p.name}</span>
+        <span id="statVal-${p.id}" style="font-family:'Oswald',sans-serif;font-size:22px;font-weight:700;color:white;min-width:32px;text-align:center;">${p[stat]||0}</span>
+        <div style="display:flex;gap:6px;margin-left:12px;">
+          <button onclick="removeStat(${p.id})" style="background:rgba(220,53,69,0.2);color:#f87171;font-size:20px;font-weight:700;padding:6px 14px;border-radius:8px;margin:0;border:1px solid rgba(220,53,69,0.3);">−</button>
+          <button onclick="addStat(${p.id})" style="background:var(--gold-dk);color:white;font-size:20px;font-weight:700;padding:6px 14px;border-radius:8px;margin:0;">+</button>
+        </div>
+      </div>`).join('');
+  openModal('statModal');
+}
+function addStat(id) {
+  const p = players.find(x => x.id===id); if(!p) return;
+  p[currentStat]=(p[currentStat]||0)+1; savePlayers(); renderAll();
+  const el=document.getElementById('statVal-'+id); if(el) el.textContent=p[currentStat];
+}
+function removeStat(id) {
+  const p = players.find(x => x.id===id); if(!p) return;
+  p[currentStat]=Math.max(0,(p[currentStat]||0)-1); savePlayers(); renderAll();
+  const el=document.getElementById('statVal-'+id); if(el) el.textContent=p[currentStat];
+}
+function renderAll() {
+  let off='', def='';
+  players.forEach(p => {
+    if(p.unit==='offense') off+=`<tr><td>${p.name}</td><td>${p.td}</td><td>${p.catch}</td><td>${p.xp}</td></tr>`;
+    if(p.unit==='defense') def+=`<tr><td>${p.name}</td><td>${p.int}</td><td>${p.flag}</td><td>${p.sack}</td><td>${p.defTd}</td></tr>`;
+  });
+  document.getElementById('offenseTable').innerHTML=`<tr><th>Player</th><th>TD</th><th>CATCH</th><th>XP</th></tr>${off}`;
+  document.getElementById('defenseTable').innerHTML=`<tr><th>Player</th><th>INT</th><th>FLAG</th><th>SACK</th><th>TD</th></tr>${def}`;
+}
+
+loadState();
+
+// ── Modals ────────────────────────────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+window.addEventListener('click', e => {
+  ['statModal','playerModal','previewModal'].forEach(id => { if(e.target===document.getElementById(id)) closeModal(id); });
+});
+
+// ── Canvas Export ─────────────────────────────────────────────────────────────
+// iOS Safari canvas pixel limit: ~16.7M pixels. Keep width at 750 to be safe.
+const IG_W = 750, FOOTER_H = 180;
+const C = { navyDk:'#060f1e', gold:'#c9a84c', goldLt:'#e8c96a', goldDk:'#9a7a2e', white:'#ffffff', offwhite:'#f5f0e8' };
+
+// Grab the logo from the DOM img element — avoids large JS string literals crashing iOS
+function getLogo() {
+  return document.getElementById('hiddenLogo');
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+
+function goldGrad(ctx, x1, y1, x2, y2) {
+  const g = ctx.createLinearGradient(x1,y1,x2,y2);
+  g.addColorStop(0,C.goldDk); g.addColorStop(0.5,C.goldLt); g.addColorStop(1,C.goldDk);
+  return g;
+}
+
+function getMetaInfo() {
+  const category = document.getElementById('categoryName').value.trim();
+  const jSel = document.getElementById('jornadaSelect');
+  const jornada = jSel.value==='custom' ? document.getElementById('customJornada').value.trim() : jSel.value||'';
+  const now = new Date();
+  const timestamp = now.toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'})
+    + '  •  ' + now.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  return { category, jornada, timestamp };
+}
+
+function drawFooter(ctx, H) {
+  const { category, jornada, timestamp } = getMetaInfo();
+  const metaLine = [category, jornada].filter(Boolean).join('  ·  ');
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillRect(0, H-FOOTER_H, IG_W, FOOTER_H);
+  ctx.fillStyle = goldGrad(ctx,0,0,IG_W,0);
+  ctx.fillRect(0, H-22, IG_W, 22);
+  ctx.strokeStyle = C.gold; ctx.lineWidth = 2; ctx.globalAlpha = 0.35;
+  ctx.beginPath(); ctx.moveTo(40,H-FOOTER_H); ctx.lineTo(IG_W-40,H-FOOTER_H); ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.font = '600 22px Oswald, Arial';
+  ctx.fillText('AFANL — ASOCIACIÓN DE FOOTBALL AMERICANO DE NUEVO LEÓN', IG_W/2, H-FOOTER_H+46);
+  if (metaLine) {
+    ctx.fillStyle = C.gold;
+    ctx.font = 'bold 30px Oswald, Arial';
+    ctx.fillText(metaLine.toUpperCase(), IG_W/2, H-FOOTER_H+90);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font = '400 22px Oswald, Arial';
+    ctx.fillText(timestamp, IG_W/2, H-FOOTER_H+130);
+  } else {
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font = '400 22px Oswald, Arial';
+    ctx.fillText(timestamp, IG_W/2, H-FOOTER_H+100);
+  }
+}
+
+function drawScoreCard() {
+  const logo = getLogo();
+  const LOGO_AREA=280, CARD_H=310, BELOW=60;
+  const H = LOGO_AREA+CARD_H+BELOW+FOOTER_H;
+  const canvas=document.createElement('canvas'); canvas.width=IG_W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+
+  const bg=ctx.createLinearGradient(0,0,IG_W,H);
+  bg.addColorStop(0,'#030d1a'); bg.addColorStop(0.5,'#071528'); bg.addColorStop(1,'#0a1f3c');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,IG_W,H);
+
+  ctx.save(); ctx.globalAlpha=0.04; ctx.fillStyle=C.gold;
+  ctx.beginPath(); ctx.moveTo(0,H*0.55); ctx.lineTo(IG_W,H*0.3); ctx.lineTo(IG_W,H*0.6); ctx.lineTo(0,H*0.85); ctx.closePath(); ctx.fill(); ctx.restore();
+
+  ctx.fillStyle=goldGrad(ctx,0,0,IG_W,0); ctx.fillRect(0,0,IG_W,14);
+
+  // Logo
+  const sz=180, cx=IG_W/2, cy=150;
+  if (logo && logo.complete && logo.naturalWidth > 0) {
+    ctx.save(); ctx.shadowColor=C.gold; ctx.shadowBlur=40; ctx.drawImage(logo,cx-sz/2,cy-sz/2,sz,sz); ctx.restore();
+    ctx.drawImage(logo,cx-sz/2,cy-sz/2,sz,sz);
+  } else {
+    ctx.fillStyle=C.gold; ctx.font='bold 80px Oswald,Arial'; ctx.textAlign='center'; ctx.fillText('AFANL',IG_W/2,120);
+  }
+
+  const cardY=LOGO_AREA-10, cardPad=40, halfW=IG_W/2-cardPad, card1X=cardPad, card2X=IG_W/2+14, cardW=halfW-14;
+  const t1=document.getElementById('teamOneName').value.trim()||'EQUIPO 1';
+  const t2=document.getElementById('teamTwoName').value.trim()||'EQUIPO 2';
+
+  roundRect(ctx,card1X,cardY,cardW,CARD_H,20); ctx.fillStyle='rgba(201,168,76,0.1)'; ctx.fill();
+  roundRect(ctx,card1X,cardY,cardW,CARD_H,20); ctx.strokeStyle=C.gold; ctx.lineWidth=3; ctx.stroke();
+  roundRect(ctx,card2X,cardY,cardW,CARD_H,20); ctx.fillStyle='rgba(255,255,255,0.04)'; ctx.fill();
+  roundRect(ctx,card2X,cardY,cardW,CARD_H,20); ctx.strokeStyle='rgba(255,255,255,0.18)'; ctx.lineWidth=3; ctx.stroke();
+
+  ctx.font='bold 30px Oswald,Arial'; ctx.textAlign='center';
+  ctx.fillStyle=C.gold; ctx.fillText(t1.toUpperCase(),card1X+cardW/2,cardY+52);
+  ctx.fillStyle=C.offwhite; ctx.fillText(t2.toUpperCase(),card2X+cardW/2,cardY+52);
+
+  ctx.font='bold 160px Oswald,Arial';
+  ctx.fillStyle=C.white; ctx.fillText(String(scoreOne),card1X+cardW/2,cardY+230);
+  ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.fillText(String(scoreTwo),card2X+cardW/2,cardY+230);
+
+  const vsX=IG_W/2, vsY=cardY+CARD_H/2+10;
+  ctx.fillStyle=goldGrad(ctx,vsX-30,0,vsX+30,0); roundRect(ctx,vsX-30,vsY-32,60,50,25); ctx.fill();
+  ctx.fillStyle='#060f1e'; ctx.font='bold 28px Oswald,Arial'; ctx.fillText('VS',vsX,vsY+10);
+
+  drawFooter(ctx,H);
+  return canvas;
+}
+
+function drawStatsCard() {
+  const logo = getLogo();
+  const PAD=36, ROW_H=50, HEAD_H=44, HEADER=170, GAP=70;
+  const offP=players.filter(p=>p.unit==='offense');
+  const defP=players.filter(p=>p.unit==='defense');
+  let offRows=offP.filter(p=>p.td>0||p.catch>0||p.xp>0).map(p=>[p.name,p.td,p.catch,p.xp]);
+  let defRows=defP.filter(p=>p.int>0||p.flag>0||p.sack>0||p.defTd>0).map(p=>[p.name,p.int,p.flag,p.sack,p.defTd]);
+  if(!offRows.length) offRows=[['—','—','—','—']];
+  if(!defRows.length) defRows=[['—','—','—','—','—']];
+  const offH=HEAD_H+offRows.length*ROW_H, defH=HEAD_H+defRows.length*ROW_H;
+  const H=HEADER+60+offH+GAP+60+defH+30+FOOTER_H;
+
+  const canvas=document.createElement('canvas'); canvas.width=IG_W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  const bg=ctx.createLinearGradient(0,0,IG_W,H);
+  bg.addColorStop(0,'#030d1a'); bg.addColorStop(1,'#0a1f3c');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,IG_W,H);
+  ctx.fillStyle=goldGrad(ctx,0,0,IG_W,0); ctx.fillRect(0,0,IG_W,14);
+
+  // Logo + title
+  const sz=66, TITLE_Y=105;
+  if (logo && logo.complete && logo.naturalWidth > 0) {
+    ctx.font='bold 66px Oswald,Arial';
+    const tw=ctx.measureText('ESTADÍSTICAS').width;
+    const gw=sz+14+tw, gx=(IG_W-gw)/2;
+    ctx.save(); ctx.shadowColor=C.gold; ctx.shadowBlur=25; ctx.drawImage(logo,gx,TITLE_Y-sz+8,sz,sz); ctx.restore();
+    ctx.drawImage(logo,gx,TITLE_Y-sz+8,sz,sz);
+    ctx.fillStyle=C.gold; ctx.textAlign='left'; ctx.fillText('ESTADÍSTICAS',gx+sz+14,TITLE_Y);
+  } else {
+    ctx.fillStyle=C.gold; ctx.font='bold 66px Oswald,Arial'; ctx.textAlign='center'; ctx.fillText('ESTADÍSTICAS',IG_W/2,TITLE_Y);
+  }
+
+  function drawTable(title,cols,rows,startY) {
+    const tableW=IG_W-PAD*2, colW=tableW/cols.length;
+    ctx.fillStyle=C.gold; ctx.font='bold 34px Oswald,Arial'; ctx.textAlign='left'; ctx.fillText(title,PAD,startY-8);
+    ctx.fillStyle=goldGrad(ctx,PAD,0,PAD+60,0); ctx.fillRect(PAD,startY,60,4);
+    const tY=startY+16;
+    roundRect(ctx,PAD,tY,tableW,HEAD_H,10); ctx.fillStyle=C.navyDk; ctx.fill();
+    ctx.fillStyle=C.gold; ctx.font='bold 24px Oswald,Arial'; ctx.textAlign='center';
+    cols.forEach((c,i)=>ctx.fillText(c.toUpperCase(),PAD+colW*i+colW/2,tY+30));
+    rows.forEach((row,ri)=>{
+      const ry=tY+HEAD_H+ri*ROW_H;
+      roundRect(ctx,PAD,ry,tableW,ROW_H,0);
+      ctx.fillStyle=ri%2===0?'rgba(201,168,76,0.05)':'rgba(255,255,255,0.02)'; ctx.fill();
+      ctx.font='500 22px Oswald,Arial';
+      row.forEach((cell,ci)=>{
+        ctx.fillStyle=ci===0?C.white:'rgba(255,255,255,0.8)';
+        ctx.textAlign=ci===0?'left':'center';
+        ctx.fillText(String(cell),ci===0?PAD+12:PAD+colW*ci+colW/2,ry+ROW_H*0.65);
+      });
+      ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(PAD,ry+ROW_H); ctx.lineTo(PAD+tableW,ry+ROW_H); ctx.stroke();
+    });
+    const tot=HEAD_H+rows.length*ROW_H;
+    roundRect(ctx,PAD,tY,tableW,tot,10); ctx.strokeStyle='rgba(201,168,76,0.2)'; ctx.lineWidth=2; ctx.stroke();
+    return tY+tot;
+  }
+
+  let nY=drawTable('OFENSA',['Jugador','TD','CATCH','XP'],offRows,HEADER);
+  drawTable('DEFENSA',['Jugador','INT','FLAG','SACK','TD'],defRows,nY+GAP);
+  drawFooter(ctx,H);
+  return canvas;
+}
+
+function showPreview(canvas, filename) {
+  try {
+    const dataUrl=canvas.toDataURL('image/png');
+    document.getElementById('previewImg').src=dataUrl;
+    document.getElementById('previewActionBtn').onclick=async()=>{
+      if(navigator.share&&navigator.canShare){
+        try{
+          const blob=await(await fetch(dataUrl)).blob();
+          const file=new File([blob],filename,{type:'image/png'});
+          if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'AFANL'}); return;}
+        }catch(e){if(e.name==='AbortError') return;}
+      }
+      const a=document.createElement('a'); a.download=filename; a.href=dataUrl; a.click();
+    };
+    openModal('previewModal');
+  } catch(err) {
+    alert('Could not generate image: ' + err.message);
+  }
+}
+
+function exportScore() { showPreview(drawScoreCard(), 'afanl_score.png'); }
+function exportStats() { showPreview(drawStatsCard(), 'afanl_stats.png'); }
+</script>
+</body>
+</html>
