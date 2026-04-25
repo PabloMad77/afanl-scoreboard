@@ -178,7 +178,7 @@ tr:hover td { background: rgba(201,168,76,0.06); }
     <button class="stat-btn" onclick="openStat('catch','offense')">CATCH</button>
     <button class="stat-btn" onclick="openStat('xp','offense')">XP</button>
   </div>
-  <table id="offenseTable"><tr><th>Player</th><th>TD</th><th>CATCH</th><th>XP</th></tr></table>
+  <table id="offenseTable"><tr><th>#</th><th>Player</th><th>TD</th><th>CATCH</th><th>XP</th></tr></table>
   <h3 style="color:var(--gold);margin-top:28px;">Defense</h3>
   <div>
     <button class="stat-btn" onclick="openStat('int','defense')">INT</button>
@@ -186,7 +186,7 @@ tr:hover td { background: rgba(201,168,76,0.06); }
     <button class="stat-btn" onclick="openStat('sack','defense')">SACK</button>
     <button class="stat-btn" onclick="openStat('defTd','defense')">TD</button>
   </div>
-  <table id="defenseTable"><tr><th>Player</th><th>INT</th><th>FLAG</th><th>SACK</th><th>TD</th></tr></table>
+  <table id="defenseTable"><tr><th>#</th><th>Player</th><th>INT</th><th>FLAG</th><th>SACK</th><th>TD</th></tr></table>
 </div>
 <div style="margin-top:16px;">
   <button class="export-btn" onclick="exportStats()">Export Stats Image</button>
@@ -224,6 +224,7 @@ tr:hover td { background: rgba(201,168,76,0.06); }
     <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:16px;border:1px solid rgba(201,168,76,0.15);">
       <strong style="display:block;margin-bottom:8px;color:rgba(255,255,255,0.8);">Add New Player</strong>
       <div class="add-player-row">
+        <input id="newPlayerNumber" placeholder="#" type="number" min="0" max="99" style="width:64px;flex:none;">
         <input id="newPlayerName" placeholder="Player name">
         <select id="newPlayerUnit">
           <option value="offense">Offense</option>
@@ -317,18 +318,24 @@ function handleJornadaChange() {
 }
 
 // ── Players ───────────────────────────────────────────────────────────────────
+function sortedPlayers() {
+  return [...players].sort((a, b) => (a.number ?? 99) - (b.number ?? 99));
+}
 function openPlayerManager() { renderPlayerList(); openModal('playerModal'); }
 function renderPlayerList() {
   const c = document.getElementById('playerList');
   if (!players.length) { c.innerHTML = '<p style="color:rgba(255,255,255,0.4);text-align:center;">No players yet.</p>'; return; }
-  c.innerHTML = players.map(p => `<div class="player-list-item"><span>${p.name}<span class="unit-badge">${p.unit}</span></span><button class="remove-btn" onclick="removePlayer(${p.id})">Remove</button></div>`).join('');
+  c.innerHTML = sortedPlayers().map(p => `<div class="player-list-item"><span><span style="font-family:'Oswald',sans-serif;color:var(--gold);margin-right:8px;">#${p.number ?? '—'}</span>${p.name}<span class="unit-badge">${p.unit}</span></span><button class="remove-btn" onclick="removePlayer(${p.id})">Remove</button></div>`).join('');
 }
 function addPlayer() {
-  const name = document.getElementById('newPlayerName').value.trim();
-  const unit = document.getElementById('newPlayerUnit').value;
+  const name   = document.getElementById('newPlayerName').value.trim();
+  const unit   = document.getElementById('newPlayerUnit').value;
+  const numVal = document.getElementById('newPlayerNumber').value.trim();
+  const number = numVal !== '' ? parseInt(numVal, 10) : null;
   if (!name) return;
-  players.push({ id: Date.now(), name, unit, td:0, catch:0, xp:0, int:0, flag:0, sack:0, defTd:0 });
-  document.getElementById('newPlayerName').value = '';
+  players.push({ id: Date.now(), name, number, unit, td:0, catch:0, xp:0, int:0, flag:0, sack:0, defTd:0 });
+  document.getElementById('newPlayerName').value   = '';
+  document.getElementById('newPlayerNumber').value = '';
   savePlayers(); renderPlayerList(); renderAll();
 }
 function removePlayer(id) {
@@ -344,12 +351,12 @@ const statLabels = { td:'TD', catch:'CATCH', xp:'XP', int:'INT', flag:'FLAG', sa
 function openStat(stat, unit) {
   currentStat = stat; currentUnit = unit;
   document.getElementById('statModalTitle').textContent = statLabels[stat] + ' — ' + unit.charAt(0).toUpperCase() + unit.slice(1);
-  const pool = players.filter(p => p.unit === unit);
+  const pool = sortedPlayers().filter(p => p.unit === unit);
   document.getElementById('statPlayers').innerHTML = !pool.length
     ? '<p style="color:rgba(255,255,255,0.4);">No players in this unit.</p>'
     : pool.map(p => `
       <div style="display:flex;align-items:center;justify-content:space-between;width:100%;background:rgba(201,168,76,0.07);border-radius:10px;padding:10px 14px;margin-bottom:8px;border:1px solid rgba(201,168,76,0.18);">
-        <span style="font-weight:600;font-size:16px;color:var(--gold);flex:1;text-align:left;">${p.name}</span>
+        <span style="font-weight:600;font-size:16px;color:var(--gold);flex:1;text-align:left;"><span style="opacity:0.7;margin-right:6px;">#${p.number ?? '—'}</span>${p.name}</span>
         <span id="statVal-${p.id}" style="font-family:'Oswald',sans-serif;font-size:22px;font-weight:700;color:white;min-width:32px;text-align:center;">${p[stat]||0}</span>
         <div style="display:flex;gap:6px;margin-left:12px;">
           <button onclick="removeStat(${p.id})" style="background:rgba(220,53,69,0.2);color:#f87171;font-size:20px;font-weight:700;padding:6px 14px;border-radius:8px;margin:0;border:1px solid rgba(220,53,69,0.3);">−</button>
@@ -370,12 +377,13 @@ function removeStat(id) {
 }
 function renderAll() {
   let off='', def='';
-  players.forEach(p => {
-    if(p.unit==='offense') off+=`<tr><td>${p.name}</td><td>${p.td}</td><td>${p.catch}</td><td>${p.xp}</td></tr>`;
-    if(p.unit==='defense') def+=`<tr><td>${p.name}</td><td>${p.int}</td><td>${p.flag}</td><td>${p.sack}</td><td>${p.defTd}</td></tr>`;
+  sortedPlayers().forEach(p => {
+    const num = p.number ?? '—';
+    if(p.unit==='offense') off+=`<tr><td style="color:var(--gold);font-family:'Oswald',sans-serif;">${num}</td><td>${p.name}</td><td>${p.td}</td><td>${p.catch}</td><td>${p.xp}</td></tr>`;
+    if(p.unit==='defense') def+=`<tr><td style="color:var(--gold);font-family:'Oswald',sans-serif;">${num}</td><td>${p.name}</td><td>${p.int}</td><td>${p.flag}</td><td>${p.sack}</td><td>${p.defTd}</td></tr>`;
   });
-  document.getElementById('offenseTable').innerHTML=`<tr><th>Player</th><th>TD</th><th>CATCH</th><th>XP</th></tr>${off}`;
-  document.getElementById('defenseTable').innerHTML=`<tr><th>Player</th><th>INT</th><th>FLAG</th><th>SACK</th><th>TD</th></tr>${def}`;
+  document.getElementById('offenseTable').innerHTML=`<tr><th>#</th><th>Player</th><th>TD</th><th>CATCH</th><th>XP</th></tr>${off}`;
+  document.getElementById('defenseTable').innerHTML=`<tr><th>#</th><th>Player</th><th>INT</th><th>FLAG</th><th>SACK</th><th>TD</th></tr>${def}`;
 }
 
 loadState();
@@ -435,7 +443,7 @@ function drawFooter(ctx, H) {
   ctx.textAlign = 'center';
   ctx.fillStyle = 'rgba(255,255,255,0.4)';
   ctx.font = '600 22px Oswald, Arial';
-  ctx.fillText('5º Nacional Infantil de Flag Football', IG_W/2, H-FOOTER_H+46);
+  ctx.fillText('AFANL — ASOCIACIÓN DE FOOTBALL AMERICANO DE NUEVO LEÓN', IG_W/2, H-FOOTER_H+46);
   if (metaLine) {
     ctx.fillStyle = C.gold;
     ctx.font = 'bold 30px Oswald, Arial';
@@ -505,10 +513,10 @@ function drawStatsCard() {
   const PAD=36, ROW_H=50, HEAD_H=44, HEADER=170, GAP=70;
   const offP=players.filter(p=>p.unit==='offense');
   const defP=players.filter(p=>p.unit==='defense');
-  let offRows=offP.filter(p=>p.td>0||p.catch>0||p.xp>0).map(p=>[p.name,p.td,p.catch,p.xp]);
-  let defRows=defP.filter(p=>p.int>0||p.flag>0||p.sack>0||p.defTd>0).map(p=>[p.name,p.int,p.flag,p.sack,p.defTd]);
-  if(!offRows.length) offRows=[['—','—','—','—']];
-  if(!defRows.length) defRows=[['—','—','—','—','—']];
+  let offRows=offP.filter(p=>p.td>0||p.catch>0||p.xp>0).sort((a,b)=>(a.number??99)-(b.number??99)).map(p=>['#'+(p.number??'—'),p.name,p.td,p.catch,p.xp]);
+  let defRows=defP.filter(p=>p.int>0||p.flag>0||p.sack>0||p.defTd>0).sort((a,b)=>(a.number??99)-(b.number??99)).map(p=>['#'+(p.number??'—'),p.name,p.int,p.flag,p.sack,p.defTd]);
+  if(!offRows.length) offRows=[['—','—','—','—','—']];
+  if(!defRows.length) defRows=[['—','—','—','—','—','—']];
   const offH=HEAD_H+offRows.length*ROW_H, defH=HEAD_H+defRows.length*ROW_H;
   const H=HEADER+60+offH+GAP+60+defH+30+FOOTER_H;
 
@@ -533,22 +541,35 @@ function drawStatsCard() {
   }
 
   function drawTable(title,cols,rows,startY) {
-    const tableW=IG_W-PAD*2, colW=tableW/cols.length;
+    const tableW=IG_W-PAD*2;
+    // First col (#) is narrow, rest split remaining evenly
+    const numColW = 52;
+    const restW = (tableW - numColW) / (cols.length - 1);
+    const colWidths = cols.map((_,i) => i===0 ? numColW : restW);
+    const colOffsets = colWidths.reduce((acc,w,i) => { acc.push(i===0?0:acc[i-1]+colWidths[i-1]); return acc; }, []);
     ctx.fillStyle=C.gold; ctx.font='bold 34px Oswald,Arial'; ctx.textAlign='left'; ctx.fillText(title,PAD,startY-8);
     ctx.fillStyle=goldGrad(ctx,PAD,0,PAD+60,0); ctx.fillRect(PAD,startY,60,4);
     const tY=startY+16;
     roundRect(ctx,PAD,tY,tableW,HEAD_H,10); ctx.fillStyle=C.navyDk; ctx.fill();
     ctx.fillStyle=C.gold; ctx.font='bold 24px Oswald,Arial'; ctx.textAlign='center';
-    cols.forEach((c,i)=>ctx.fillText(c.toUpperCase(),PAD+colW*i+colW/2,tY+30));
+    cols.forEach((c,i)=>ctx.fillText(c.toUpperCase(),PAD+colOffsets[i]+colWidths[i]/2,tY+30));
     rows.forEach((row,ri)=>{
       const ry=tY+HEAD_H+ri*ROW_H;
       roundRect(ctx,PAD,ry,tableW,ROW_H,0);
       ctx.fillStyle=ri%2===0?'rgba(201,168,76,0.05)':'rgba(255,255,255,0.02)'; ctx.fill();
       ctx.font='500 22px Oswald,Arial';
       row.forEach((cell,ci)=>{
-        ctx.fillStyle=ci===0?C.white:'rgba(255,255,255,0.8)';
-        ctx.textAlign=ci===0?'left':'center';
-        ctx.fillText(String(cell),ci===0?PAD+12:PAD+colW*ci+colW/2,ry+ROW_H*0.65);
+        // col 0 = jersey # (gold, centered), col 1 = name (white, left), rest centered
+        if (ci===0) {
+          ctx.fillStyle=C.gold; ctx.textAlign='center';
+          ctx.fillText(String(cell),PAD+colOffsets[0]+colWidths[0]/2,ry+ROW_H*0.65);
+        } else if (ci===1) {
+          ctx.fillStyle=C.white; ctx.textAlign='left';
+          ctx.fillText(String(cell),PAD+colOffsets[1]+8,ry+ROW_H*0.65);
+        } else {
+          ctx.fillStyle='rgba(255,255,255,0.8)'; ctx.textAlign='center';
+          ctx.fillText(String(cell),PAD+colOffsets[ci]+colWidths[ci]/2,ry+ROW_H*0.65);
+        }
       });
       ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
       ctx.beginPath(); ctx.moveTo(PAD,ry+ROW_H); ctx.lineTo(PAD+tableW,ry+ROW_H); ctx.stroke();
@@ -558,8 +579,8 @@ function drawStatsCard() {
     return tY+tot;
   }
 
-  let nY=drawTable('OFENSA',['Jugador','TD','CATCH','XP'],offRows,HEADER);
-  drawTable('DEFENSA',['Jugador','INT','FLAG','SACK','TD'],defRows,nY+GAP);
+  let nY=drawTable('OFENSA',['#','Jugador','TD','CATCH','XP'],offRows,HEADER);
+  drawTable('DEFENSA',['#','Jugador','INT','FLAG','SACK','TD'],defRows,nY+GAP);
   drawFooter(ctx,H);
   return canvas;
 }
